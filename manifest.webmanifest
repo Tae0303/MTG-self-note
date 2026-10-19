@@ -1,0 +1,16 @@
+{
+  "name": "Card Notes",
+  "short_name": "Card Notes",
+  "description": "Write notes about your Magic cards in your own language.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#17130e",
+  "theme_color": "#17130e",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,940 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Card Notes</title>
+<meta name="description" content="Write notes about your Magic cards in your own language.">
+<meta name="theme-color" content="#17130e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Card Notes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  /* Layout: one phone-width column; sticky top bar, scrolling list, tab bar pinned to the bottom */
+  :root {
+    --bg: #f3eee3;
+    --surface: #fffdf8;
+    --surface-2: #ebe3d2;
+    --ink: #1f1a13;
+    --muted: #6b6152;
+    --line: #dcd2bf;
+    --accent: #8f5d1c;
+    --accent-ink: #ffffff;
+    --gold: #c9a24a;
+    --ok: #2f7d4c;
+    --draft: #b7791f;
+    --danger: #b3361f;
+    --f-display: "Cinzel", Georgia, serif;
+    --f-body: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Thai", "Leelawadee UI", sans-serif;
+    --bar-h: 56px;
+    --tab-h: 60px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17130e; --surface: #221c15; --surface-2: #2d251b; --ink: #f1e9da; --muted: #a99c87;
+      --line: #3b3226; --accent: #d9a55a; --accent-ink: #1a140c; --gold: #d9b45e; --ok: #6cc28a;
+      --draft: #e3a64a; --danger: #f08a6c; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17130e; --surface: #221c15; --surface-2: #2d251b; --ink: #f1e9da; --muted: #a99c87;
+    --line: #3b3226; --accent: #d9a55a; --accent-ink: #1a140c; --gold: #d9b45e; --ok: #6cc28a;
+    --draft: #e3a64a; --danger: #f08a6c; color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.45 var(--f-body);
+    min-height: 100vh;
+    padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+  }
+  button { font: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .wrap { max-width: 680px; margin: 0 auto; padding-inline: 16px; }
+
+  /* top bar */
+  .appbar {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .appbar .wrap { height: var(--bar-h); display: flex; align-items: center; gap: 8px; }
+  .appbar h1 {
+    flex: 1; min-width: 0; margin: 0;
+    font: 700 20px/1.1 var(--f-display); letter-spacing: .02em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .iconbtn {
+    width: 40px; height: 40px; flex: none; border-radius: 10px;
+    border: 0; background: transparent; display: grid; place-items: center; cursor: pointer;
+  }
+  .iconbtn svg { width: 22px; height: 22px; }
+  .iconbtn:active { background: var(--surface-2); }
+  .seg { display: flex; background: var(--surface-2); border-radius: 10px; padding: 3px; flex: none; }
+  .seg button { border: 0; background: transparent; border-radius: 8px; width: 38px; height: 32px; display: grid; place-items: center; cursor: pointer; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+  .seg svg { width: 18px; height: 18px; }
+
+  /* search + filters */
+  .tools { display: flex; flex-direction: column; gap: 10px; padding-block: 12px 4px; }
+  .search { position: relative; }
+  .search svg { position: absolute; left: 12px; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); color: var(--muted); }
+  .search input {
+    width: 100%; height: 44px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); font: inherit; padding: 0 12px 0 38px;
+  }
+  .chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .chip {
+    flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
+    padding: 5px 12px; font-size: 14px; cursor: pointer; white-space: nowrap;
+  }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .count { color: var(--muted); font-size: 13px; padding-block: 4px; font-variant-numeric: tabular-nums; }
+
+  /* list view */
+  .list { display: flex; flex-direction: column; }
+  .sect {
+    font: 700 13px/1 var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: var(--accent);
+    padding: 18px 0 8px; margin: 0; display: flex; justify-content: space-between;
+  }
+  .sect span { font-family: var(--f-body); font-weight: 600; color: var(--muted); }
+  .row {
+    display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 12px; align-items: center;
+    width: 100%; text-align: left; padding: 11px 4px; border: 0; border-bottom: 1px solid var(--line);
+    background: transparent; cursor: pointer;
+  }
+  .row:active { background: var(--surface-2); }
+  .rmain { min-width: 0; display: flex; flex-direction: column; }
+  .rname { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rname .qty { color: var(--muted); font-weight: 500; margin-right: 4px; font-variant-numeric: tabular-nums; }
+  .rsub { font-size: 13.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rsub.note { color: var(--ink); opacity: .8; }
+  .rmana { display: flex; align-items: center; gap: 1px; flex: none; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); }
+  .dot.s-draft { border-color: var(--draft); background: linear-gradient(90deg, var(--draft) 50%, transparent 50%); }
+  .dot.s-done { border-color: var(--ok); background: var(--ok); }
+
+  /* mana symbols */
+  .mana { width: 17px; height: 17px; vertical-align: -3px; filter: drop-shadow(-1px 1px 0 rgba(0,0,0,.55)); margin: 0 1px; }
+  .mana-lg .mana { width: 22px; height: 22px; }
+  .slash { color: var(--muted); margin: 0 3px; font-size: 13px; }
+  .oracle .mana { width: 15px; height: 15px; filter: none; }
+
+  /* grid view (full cards) */
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding-block: 8px; }
+  @media (min-width: 520px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .gsect { grid-column: 1 / -1; }
+  .gcard {
+    position: relative; border: 0; padding: 0; background: #111; cursor: pointer;
+    aspect-ratio: 488 / 680; border-radius: 4.6% / 3.3%; overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,.3);
+  }
+  .gcard img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .gcard .ph { position: absolute; inset: 8px; display: grid; place-items: center; text-align: center; color: #eee; font: 700 14px var(--f-display); }
+  .badge {
+    position: absolute; right: 6px; bottom: 8px; min-width: 26px; height: 26px; border-radius: 13px;
+    display: grid; place-items: center; font-size: 14px; font-weight: 700; color: #fff; padding: 0 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.5);
+  }
+  .badge.done { background: var(--ok); }
+  .badge.draft { background: var(--draft); }
+  .gqty { position: absolute; left: 6px; top: 6px; background: rgba(0,0,0,.75); color: #fff; font-size: 13px; font-weight: 700; padding: 1px 7px; border-radius: 9px; }
+
+  /* deck cards on the Decks tab */
+  .decklist { display: flex; flex-direction: column; gap: 10px; padding-block: 14px; }
+  .deck {
+    display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; align-items: center;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px;
+    text-align: left; cursor: pointer; width: 100%;
+  }
+  .deck .art { width: 64px; height: 64px; border-radius: 10px; background: var(--surface-2) center/cover no-repeat; }
+  .deck h2 { margin: 0; font: 700 16px/1.25 var(--f-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .deck .meta { font-size: 13px; color: var(--muted); }
+  .bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: 6px; display: flex; }
+  .bar i { display: block; height: 100%; }
+  .bar .b-done { background: var(--ok); }
+  .bar .b-draft { background: var(--draft); }
+
+  /* empty states */
+  .empty { text-align: center; padding: 48px 12px; color: var(--muted); display: flex; flex-direction: column; gap: 14px; align-items: center; }
+  .empty h2 { margin: 0; color: var(--ink); font: 700 20px var(--f-display); }
+  .empty p { margin: 0; max-width: 34ch; }
+
+  /* buttons */
+  .btn {
+    border: 1px solid var(--line); background: var(--surface); border-radius: 12px;
+    padding: 11px 16px; font-weight: 600; cursor: pointer; min-height: 44px;
+  }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn.danger { color: var(--danger); }
+  .btn.block { width: 100%; }
+  .btn:disabled { opacity: .6; }
+
+  /* floating add button + tab bar */
+  #fab {
+    position: fixed; z-index: 25; right: max(16px, calc(50vw - 340px + 16px));
+    bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 16px);
+    width: 58px; height: 58px; border-radius: 18px; border: 0;
+    background: var(--accent); color: var(--accent-ink); font-size: 32px; line-height: 1; cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0,0,0,.3);
+  }
+  .tabs {
+    position: fixed; z-index: 30; left: 0; right: 0; bottom: 0;
+    background: var(--surface); border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .tabs .wrap { display: grid; grid-template-columns: 1fr 1fr; height: var(--tab-h); }
+  .tabs a {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    color: var(--muted); text-decoration: none; font-size: 12.5px; font-weight: 600;
+  }
+  .tabs a svg { width: 24px; height: 24px; }
+  .tabs a[aria-current="page"] { color: var(--accent); }
+
+  /* bottom sheet */
+  .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.45); }
+  .sheet {
+    position: fixed; z-index: 41; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 680px;
+    max-height: 88vh; overflow: auto; background: var(--surface); border-radius: 18px 18px 0 0;
+    padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px auto 2px; }
+  .sheet h2 { margin: 0; font: 700 19px var(--f-display); }
+  .sheet label.lbl { font-size: 13px; font-weight: 600; color: var(--muted); display: block; margin-bottom: 4px; }
+  .sheet input[type=text], .sheet textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--ink);
+    font: inherit; padding: 10px 12px;
+  }
+  .sheet textarea { min-height: 180px; font: 14px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  .hint { font-size: 13px; color: var(--muted); margin: 0; }
+  .msg { font-size: 14px; min-height: 1.2em; }
+  .msg.err { color: var(--danger); }
+  .sugs { display: flex; flex-direction: column; }
+  .sug { text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 12px 4px; cursor: pointer; font-weight: 600; }
+  .sug:active { background: var(--surface-2); }
+  .checkrow { display: flex; gap: 10px; align-items: center; font-size: 15px; }
+  .checkrow input { width: 20px; height: 20px; accent-color: var(--accent); }
+  .menu { display: flex; flex-direction: column; gap: 8px; }
+
+  /* card detail */
+  #detail { position: fixed; inset: 0; z-index: 35; background: var(--bg); overflow: auto; overscroll-behavior: contain; }
+  #detail .body { padding-block: 16px 40px; display: flex; flex-direction: column; gap: 14px; }
+  .cardimg { position: relative; width: min(100%, 340px); margin: 0 auto; }
+  .cardimg img { width: 100%; border-radius: 4.6% / 3.3%; display: block; box-shadow: 0 6px 18px rgba(0,0,0,.35); background: #111; aspect-ratio: 488 / 680; }
+  .flip { position: absolute; right: 8px; top: 40%; }
+  .namebar { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .namebar h2 { margin: 0; font: 700 21px/1.2 var(--f-display); }
+  .typeline { color: var(--muted); font-size: 14px; margin-top: -8px; }
+  .notebox label { font-weight: 700; font-size: 14px; display: block; margin-bottom: 6px; }
+  .notebox textarea {
+    width: 100%; min-height: 160px; resize: vertical; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); font: 17px/1.55 var(--f-body); padding: 12px 14px;
+  }
+  .saverow { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; }
+  .saved { font-size: 13px; color: var(--muted); }
+  .switch { display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; }
+  .switch input { appearance: none; -webkit-appearance: none; width: 46px; height: 28px; border-radius: 14px; background: var(--line); position: relative; cursor: pointer; transition: background .15s; margin: 0; }
+  .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .switch input:checked { background: var(--ok); }
+  .switch input:checked::after { transform: translateX(18px); }
+  details.rules { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; }
+  details.rules summary { cursor: pointer; font-weight: 600; }
+  .oracle { white-space: pre-wrap; font-size: 15px; margin-top: 8px; }
+  .indecks { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; color: var(--muted); }
+  .indecks a { color: var(--ink); background: var(--surface-2); border-radius: 999px; padding: 4px 10px; text-decoration: none; font-size: 13.5px; }
+
+  #toast {
+    position: fixed; z-index: 60; left: 50%; transform: translateX(-50%);
+    bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 86px);
+    background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px;
+    max-width: calc(100vw - 32px); box-shadow: 0 6px 16px rgba(0,0,0,.3);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .sheet { animation: up .18s ease-out; }
+    @keyframes up { from { transform: translateY(30px); opacity: .6; } to { transform: none; opacity: 1; } }
+  }
+</style>
+</head>
+<body>
+<header class="appbar">
+  <div class="wrap">
+    <button class="iconbtn" id="backBtn" aria-label="Back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h1 id="title">Library</h1>
+    <div class="seg" role="group" aria-label="How cards are shown">
+      <button id="viewList" aria-pressed="true" aria-label="Name and mana"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <button id="viewGrid" aria-pressed="false" aria-label="Full card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="7" height="9.5" rx="1"/><rect x="13" y="3" width="7" height="9.5" rx="1"/><rect x="4" y="14.5" width="7" height="6.5" rx="1"/><rect x="13" y="14.5" width="7" height="6.5" rx="1"/></svg></button>
+    </div>
+    <button class="iconbtn" id="menuBtn" aria-label="More options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<button id="fab" aria-label="Add">+</button>
+
+<nav class="tabs" aria-label="Sections">
+  <div class="wrap">
+    <a href="#/library" id="tabLibrary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="16" rx="1.5"/><rect x="12" y="4" width="4" height="16" rx="1"/><path d="M18 5l3 .8-3.6 14.6-3-.8"/></svg>Library</a>
+    <a href="#/decks" id="tabDecks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="16" rx="1.5"/><path d="M4 6v13a2 2 0 0 0 2 2h10"/></svg>Decks</a>
+  </div>
+</nav>
+
+<section id="detail" hidden aria-label="Card"></section>
+<div id="sheetHost"></div>
+<div id="toast" role="status" hidden></div>
+
+<script>
+/* ============================== helpers ============================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const norm = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const SYM = 'https://svgs.scryfall.io/card-symbols/';
+
+function symImg(x) {
+  const file = x.toUpperCase().replace(/\//g, '');
+  return `<img class="mana" src="${SYM}${encodeURIComponent(file)}.svg" alt="{${esc(x)}}">`;
+}
+function manaHtml(cost) {
+  if (!cost) return '';
+  return cost.split(' // ').map(p => esc(p).replace(/\{([^}]+)\}/g, (m, x) => symImg(x))).join('<span class="slash">//</span>');
+}
+function rulesHtml(text) {
+  return esc(text).replace(/\{([^}]+)\}/g, (m, x) => symImg(x));
+}
+let toastTimer;
+function toast(msg, ms = 2600) {
+  const t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, ms);
+}
+
+/* ============================== storage ============================== */
+const KEY = 'cardnotes-v1';
+function loadData() {
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && d.cards && Array.isArray(d.decks)) return d; } catch {}
+  return { cards: {}, decks: [], settings: {} };
+}
+let data = loadData();
+data.settings = Object.assign({ view: 'list' }, data.settings);
+function persist() {
+  try { localStorage.setItem(KEY, JSON.stringify(data)); return true; }
+  catch { toast("Couldn't save on this phone. Storage may be full. Export a backup from the ⋮ menu."); return false; }
+}
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
+
+const status = c => c.done ? 'done' : (c.note && c.note.trim() ? 'draft' : 'empty');
+
+/* ============================== Scryfall ============================== */
+function fromScryfall(c) {
+  const faces = c.card_faces || [];
+  const f0 = faces[0] || {};
+  return {
+    id: c.oracle_id || f0.oracle_id || c.id,
+    name: c.name,
+    mana: c.mana_cost != null && c.mana_cost !== '' ? c.mana_cost : faces.map(f => f.mana_cost).filter(Boolean).join(' // '),
+    type: c.type_line || faces.map(f => f.type_line).join(' // '),
+    text: c.oracle_text || faces.map(f => f.name + '\n' + (f.oracle_text || '')).join('\n\n'),
+    img: (c.image_uris || f0.image_uris || {}).normal || '',
+    imgBack: (faces[1] && faces[1].image_uris && faces[1].image_uris.normal) || '',
+    art: (c.image_uris || f0.image_uris || {}).art_crop || '',
+    faces: faces.map(f => f.name),
+  };
+}
+function upsertCard(sc, manual) {
+  const rec = fromScryfall(sc);
+  const old = data.cards[rec.id];
+  data.cards[rec.id] = old ? Object.assign(old, rec) : Object.assign(rec, { note: '', done: false, updated: 0, manual: !!manual, added: Date.now() });
+  if (manual && old) old.manual = true;
+  return data.cards[rec.id];
+}
+async function getJson(url) {
+  const r = await fetch(url);
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error('Scryfall answered ' + r.status);
+  return r.json();
+}
+// Looks up many names with few requests; plain GET only so no CORS preflight is needed.
+async function lookup(list, onProgress) {
+  const want = [...new Map(list.map(l => [l.front.toLowerCase(), l])).values()];
+  const result = new Map(), missing = [];
+  const BATCH = 30;
+  for (let i = 0; i < want.length; i += BATCH) {
+    const chunk = want.slice(i, i + BATCH);
+    onProgress && onProgress(`Looking up cards… ${Math.min(i + BATCH, want.length)} of ${want.length}`);
+    const wanted = chunk.map(l => l.front.toLowerCase());
+    let url = 'https://api.scryfall.com/cards/search?unique=cards&q=' + encodeURIComponent(chunk.map(l => `!"${l.front.replace(/"/g, '')}"`).join(' or '));
+    while (url) {
+      const j = await getJson(url);
+      if (!j) break;
+      for (const c of j.data) {
+        const keys = [c.name, ...(c.card_faces || []).map(f => f.name)].map(n => n.toLowerCase());
+        for (const w of wanted) if (keys.includes(w)) result.set(w, c);
+      }
+      url = j.has_more ? j.next_page : null;
+      await sleep(110);
+    }
+  }
+  for (const l of want) {
+    const w = l.front.toLowerCase();
+    if (result.has(w)) continue;
+    onProgress && onProgress(`Checking spelling of "${l.front}"…`);
+    const c = await getJson('https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(l.front));
+    await sleep(110);
+    if (c && c.object === 'card') result.set(w, c); else missing.push(l.front);
+  }
+  return { result, missing };
+}
+function netError(err) {
+  return err instanceof TypeError
+    ? "Can't reach Scryfall right now. Check your internet connection and try again. Your notes are safe on this phone."
+    : 'Scryfall is busy (' + err.message + '). Wait a minute and try again.';
+}
+
+/* ============================== decklist parsing ============================== */
+const HEADER = /^(\/\/\s*)?(commanders?|command zone|deck|main\s?deck|mainboard|main|companions?|sideboard|maybeboard|considering|tokens?|lands?|creatures?|instants?|sorcer(y|ies)|artifacts?|enchantments?|planeswalkers?|battles?|other|spells?)\s*(\(\d+\))?\s*:?$/i;
+function parseDeck(txt) {
+  const out = []; let section = 'main';
+  for (const raw of txt.split(/\r?\n/)) {
+    let line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const h = line.match(HEADER);
+    if (h) {
+      const w = h[2].toLowerCase();
+      section = /^command/.test(w) ? 'commander' : /side|maybe|consider|token/.test(w) ? 'skip' : 'main';
+      continue;
+    }
+    if (section === 'skip' || /^SB:/i.test(line)) continue;
+    const isCmd = section === 'commander' || /\[commander/i.test(line) || /\*CMDR\*/i.test(line);
+    let qty = 1;
+    const m = line.match(/^(\d+)\s*x?\s+(.+)$/i);
+    if (m) { qty = +m[1]; line = m[2]; }
+    line = line
+      .replace(/\s*\[[^\]]*\]\s*/g, ' ').replace(/\s*\^[^^]*\^\s*/g, ' ')
+      .replace(/\s+\*[A-Z]+\*/gi, ' ').replace(/\s+#\S.*$/, '')
+      .replace(/\s+\([A-Za-z0-9]{2,6}\)(\s+\S+)?\s*$/, '').trim();
+    if (line) out.push({ qty, name: line, front: line.split(/\s*\/\/?\s*/)[0].trim(), isCmd });
+  }
+  return out;
+}
+
+/* ============================== app state + routing ============================== */
+const ui = { q: { library: '', deck: '' }, filter: { library: 'all', deck: 'all' }, base: '#/library', route: {} };
+
+function parseRoute() {
+  const parts = (location.hash || '#/library').slice(2).split('/');
+  return { view: parts[0] || 'library', id: decodeURIComponent(parts[1] || '') };
+}
+function go(hash) { if (location.hash !== hash) location.hash = hash; else route(); }
+
+function route() {
+  const r = parseRoute();
+  ui.route = r;
+  if (r.view === 'card') {
+    if (!data.cards[r.id]) { go(ui.base); return; }
+    if (!$('#main').childElementCount) renderBase(ui.base);
+    openDetail(r.id);
+    return;
+  }
+  closeDetail();
+  if (r.view === 'deck' && !data.decks.find(d => d.id === r.id)) { go('#/decks'); return; }
+  ui.base = location.hash || '#/library';
+  renderBase(ui.base);
+}
+function renderBase(hash) {
+  const parts = hash.slice(2).split('/');
+  const view = parts[0] || 'library', id = decodeURIComponent(parts[1] || '');
+  $('#tabLibrary').toggleAttribute('aria-current', view === 'library');
+  $('#tabDecks').toggleAttribute('aria-current', view === 'decks' || view === 'deck');
+  if (view === 'library') $('#tabLibrary').setAttribute('aria-current', 'page');
+  if (view === 'decks' || view === 'deck') $('#tabDecks').setAttribute('aria-current', 'page');
+  $('#backBtn').hidden = view !== 'deck';
+  if (view === 'decks') renderDecks();
+  else if (view === 'deck') renderDeck(id);
+  else renderLibrary();
+}
+window.addEventListener('hashchange', route);
+
+/* ============================== view toggle ============================== */
+function syncViewButtons() {
+  $('#viewList').setAttribute('aria-pressed', data.settings.view === 'list');
+  $('#viewGrid').setAttribute('aria-pressed', data.settings.view === 'grid');
+}
+function setView(v) { data.settings.view = v; persist(); syncViewButtons(); renderBase(ui.base); }
+$('#viewList').addEventListener('click', () => setView('list'));
+$('#viewGrid').addEventListener('click', () => setView('grid'));
+
+/* ============================== shared list rendering ============================== */
+function matches(c, q) {
+  if (!q) return true;
+  const n = norm(q);
+  return norm(c.name).includes(n) || norm(c.note).includes(n) || norm(c.type).includes(n);
+}
+function filterOk(c, f) { return f === 'all' || (f === 'todo' ? !c.done : c.done); }
+
+function toolsHtml(scope, placeholder, counts) {
+  const f = ui.filter[scope];
+  return `<div class="tools">
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input type="search" id="q-${scope}" placeholder="${esc(placeholder)}" value="${esc(ui.q[scope])}" autocomplete="off" enterkeyhint="search" aria-label="${esc(placeholder)}"></div>
+    <div class="chips" role="group" aria-label="Filter">
+      <button class="chip" data-f="all" aria-pressed="${f === 'all'}">All ${counts.all}</button>
+      <button class="chip" data-f="todo" aria-pressed="${f === 'todo'}">To do ${counts.todo}</button>
+      <button class="chip" data-f="done" aria-pressed="${f === 'done'}">Finished ${counts.done}</button>
+    </div></div><div id="results"></div>`;
+}
+function wireTools(scope, renderResults) {
+  const input = $('#q-' + scope);
+  input.addEventListener('input', () => { ui.q[scope] = input.value; renderResults(); });
+  document.querySelectorAll('.chip[data-f]').forEach(b => b.addEventListener('click', () => {
+    ui.filter[scope] = b.dataset.f;
+    document.querySelectorAll('.chip[data-f]').forEach(x => x.setAttribute('aria-pressed', x === b));
+    renderResults();
+  }));
+}
+function cardItem(c, qty) {
+  const st = status(c);
+  if (data.settings.view === 'grid') {
+    return `<button class="gcard" data-id="${esc(c.id)}" aria-label="${esc(c.name)}">
+      ${c.img ? `<img src="${esc(c.img)}" alt="" loading="lazy">` : `<span class="ph">${esc(c.name)}</span>`}
+      ${qty > 1 ? `<span class="gqty">${qty}×</span>` : ''}
+      ${st === 'done' ? '<span class="badge done" title="Finished">✓</span>' : st === 'draft' ? '<span class="badge draft" title="In progress">✎</span>' : ''}
+    </button>`;
+  }
+  const sub = c.note && c.note.trim()
+    ? `<span class="rsub note">${esc(c.note.trim().split('\n')[0])}</span>`
+    : `<span class="rsub">${esc(c.type)}</span>`;
+  return `<button class="row" data-id="${esc(c.id)}">
+    <span class="dot s-${st}" title="${st === 'done' ? 'Finished' : st === 'draft' ? 'In progress' : 'No note yet'}"></span>
+    <span class="rmain"><span class="rname">${qty ? `<span class="qty">${qty}</span>` : ''}${esc(c.name)}</span>${sub}</span>
+    <span class="rmana">${manaHtml(c.mana)}</span>
+  </button>`;
+}
+function wireItems(host) {
+  host.querySelectorAll('[data-id]').forEach(b => b.addEventListener('click', () => go('#/card/' + encodeURIComponent(b.dataset.id))));
+}
+
+/* ============================== Library ============================== */
+function renderLibrary() {
+  $('#title').textContent = 'Library';
+  $('#fab').setAttribute('aria-label', 'Add a card to the library');
+  const all = Object.values(data.cards);
+  const main = $('#main');
+  if (!all.length) {
+    main.innerHTML = `<div class="empty"><h2>No cards yet</h2>
+      <p>Import a deck to fill your library, or tap + to add a single card.</p>
+      <button class="btn primary" id="emptyImport">Import a deck</button>
+      <button class="btn" id="emptySample">Try a sample deck</button></div>`;
+    $('#emptyImport').onclick = () => { go('#/decks'); openImportSheet(); };
+    $('#emptySample').onclick = () => importSample();
+    return;
+  }
+  const counts = { all: all.length, todo: all.filter(c => !c.done).length, done: all.filter(c => c.done).length };
+  main.innerHTML = toolsHtml('library', 'Search names or your notes', counts);
+  const draw = () => {
+    const list = all.filter(c => matches(c, ui.q.library) && filterOk(c, ui.filter.library)).sort((a, b) => a.name.localeCompare(b.name));
+    const host = $('#results');
+    if (!list.length) { host.innerHTML = `<div class="empty"><p>No cards match${ui.q.library ? ` “${esc(ui.q.library)}”` : ' this filter'}.</p></div>`; return; }
+    host.innerHTML = `<div class="count">${list.length} card${list.length === 1 ? '' : 's'}</div>
+      <div class="${data.settings.view === 'grid' ? 'grid' : 'list'}">${list.map(c => cardItem(c, 0)).join('')}</div>`;
+    wireItems(host);
+  };
+  wireTools('library', draw);
+  draw();
+}
+
+/* ============================== Decks ============================== */
+function deckStats(d) {
+  const cards = d.cards.map(e => data.cards[e.id]).filter(Boolean);
+  return { total: cards.length, done: cards.filter(c => c.done).length, draft: cards.filter(c => status(c) === 'draft').length };
+}
+function deckArt(d) {
+  const cmd = d.cards.find(e => e.cmd && data.cards[e.id]);
+  const c = data.cards[(cmd || d.cards[0] || {}).id];
+  return c ? c.art : '';
+}
+function renderDecks() {
+  $('#title').textContent = 'Decks';
+  $('#fab').setAttribute('aria-label', 'Import a deck');
+  const main = $('#main');
+  if (!data.decks.length) {
+    main.innerHTML = `<div class="empty"><h2>No decks yet</h2>
+      <p>Tap + and paste a decklist from Moxfield, Archidekt, MTG Arena or anywhere else.</p>
+      <button class="btn primary" id="emptyImport">Import a deck</button>
+      <button class="btn" id="emptySample">Try a sample deck</button></div>`;
+    $('#emptyImport').onclick = openImportSheet;
+    $('#emptySample').onclick = importSample;
+    return;
+  }
+  main.innerHTML = `<div class="decklist">${data.decks.map(d => {
+    const s = deckStats(d); const art = deckArt(d);
+    return `<button class="deck" data-deck="${esc(d.id)}">
+      <span class="art" style="${art ? `background-image:url('${esc(art)}')` : ''}"></span>
+      <span style="min-width:0"><h2>${esc(d.name)}</h2>
+        <span class="meta">${s.done} of ${s.total} finished${s.draft ? ` · ${s.draft} in progress` : ''}</span>
+        <span class="bar"><i class="b-done" style="width:${s.total ? s.done / s.total * 100 : 0}%"></i><i class="b-draft" style="width:${s.total ? s.draft / s.total * 100 : 0}%"></i></span>
+      </span></button>`;
+  }).join('')}</div>`;
+  main.querySelectorAll('[data-deck]').forEach(b => b.addEventListener('click', () => go('#/deck/' + encodeURIComponent(b.dataset.deck))));
+}
+
+const SECTIONS = ['Commander', 'Creatures', 'Planeswalkers', 'Battles', 'Instants', 'Sorceries', 'Artifacts', 'Enchantments', 'Lands', 'Other'];
+function sectionOf(c, e) {
+  if (e.cmd) return 'Commander';
+  const t = (c.type || '').split(' // ')[0];
+  if (/\bCreature\b/.test(t)) return 'Creatures';
+  if (/\bPlaneswalker\b/.test(t)) return 'Planeswalkers';
+  if (/\bBattle\b/.test(t)) return 'Battles';
+  if (/\bLand\b/.test(t)) return 'Lands';
+  if (/\bInstant\b/.test(t)) return 'Instants';
+  if (/\bSorcery\b/.test(t)) return 'Sorceries';
+  if (/\bArtifact\b/.test(t)) return 'Artifacts';
+  if (/\bEnchantment\b/.test(t)) return 'Enchantments';
+  return 'Other';
+}
+function renderDeck(id) {
+  const d = data.decks.find(x => x.id === id);
+  $('#title').textContent = d.name;
+  $('#fab').setAttribute('aria-label', 'Add a card to this deck');
+  const entries = d.cards.map(e => ({ e, c: data.cards[e.id] })).filter(x => x.c);
+  const counts = { all: entries.length, todo: entries.filter(x => !x.c.done).length, done: entries.filter(x => x.c.done).length };
+  if (ui.lastDeck !== id) { ui.q.deck = ''; ui.filter.deck = 'all'; ui.lastDeck = id; }
+  $('#main').innerHTML = toolsHtml('deck', 'Search this deck', counts);
+  const draw = () => {
+    const list = entries.filter(x => matches(x.c, ui.q.deck) && filterOk(x.c, ui.filter.deck));
+    const host = $('#results');
+    if (!list.length) { host.innerHTML = `<div class="empty"><p>No cards match${ui.q.deck ? ` “${esc(ui.q.deck)}”` : ' this filter'}.</p></div>`; return; }
+    const grid = data.settings.view === 'grid';
+    let html = `<div class="${grid ? 'grid' : 'list'}">`;
+    for (const s of SECTIONS) {
+      const group = list.filter(x => sectionOf(x.c, x.e) === s).sort((a, b) => a.c.name.localeCompare(b.c.name));
+      if (!group.length) continue;
+      const n = group.reduce((t, x) => t + x.e.qty, 0);
+      html += `<h3 class="sect ${grid ? 'gsect' : ''}">${s}<span>${n}</span></h3>` + group.map(x => cardItem(x.c, grid ? x.e.qty : x.e.qty)).join('');
+    }
+    host.innerHTML = html + '</div>';
+    wireItems(host);
+  };
+  wireTools('deck', draw);
+  draw();
+}
+$('#backBtn').addEventListener('click', () => go('#/decks'));
+
+/* ============================== Card detail ============================== */
+let saveTimerNote = 0;
+function openDetail(id) {
+  const c = data.cards[id];
+  const det = $('#detail');
+  const inDecks = data.decks.filter(d => d.cards.some(e => e.id === id));
+  const fromDeck = ui.base.startsWith('#/deck/') ? data.decks.find(d => d.id === decodeURIComponent(ui.base.split('/')[2])) : null;
+  det.innerHTML = `
+    <header class="appbar"><div class="wrap">
+      <button class="iconbtn" id="detailBack" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <h1>${esc(c.name)}</h1></div></header>
+    <div class="wrap body">
+      ${c.img ? `<div class="cardimg"><img id="cardImg" src="${esc(c.img)}" alt="${esc(c.name)}">
+        ${c.imgBack ? `<button class="btn flip" id="flipBtn">Flip</button>` : ''}</div>` : ''}
+      <div class="namebar"><h2>${esc(c.name)}</h2><span class="mana-lg">${manaHtml(c.mana)}</span></div>
+      <div class="typeline">${esc(c.type)}</div>
+      <div class="notebox">
+        <label for="note">Your note</label>
+        <textarea id="note" placeholder="Write what this card does, in your own words and language. It saves as you type."></textarea>
+        <div class="saverow"><span class="saved" id="savedMsg">${c.updated ? 'Saved' : 'Not started'}</span>
+          <label class="switch"><input type="checkbox" id="doneBox" ${c.done ? 'checked' : ''}> Finished</label></div>
+      </div>
+      <details class="rules"><summary>Card text (English)</summary><div class="oracle">${rulesHtml(c.text)}</div></details>
+      <div class="indecks">${inDecks.length ? 'In decks: ' + inDecks.map(d => `<a href="#/deck/${encodeURIComponent(d.id)}">${esc(d.name)}</a>`).join('') : 'Not in any deck yet.'}</div>
+      <div class="menu">
+        ${fromDeck ? `<button class="btn danger" id="removeFromDeck">Remove from ${esc(fromDeck.name)}</button>` : ''}
+        ${!inDecks.length ? `<button class="btn danger" id="deleteCard">Delete from library</button>` : ''}
+      </div>
+    </div>`;
+  det.hidden = false; det.scrollTop = 0;
+  document.body.style.overflow = 'hidden';
+  const ta = $('#note'); ta.value = c.note || '';
+  const saved = $('#savedMsg');
+  ta.addEventListener('input', () => {
+    saved.textContent = 'Saving…';
+    clearTimeout(saveTimerNote);
+    saveTimerNote = setTimeout(() => {
+      c.note = ta.value; c.updated = Date.now();
+      saved.textContent = persist() ? 'Saved' : 'Not saved';
+    }, 400);
+  });
+  ta.addEventListener('blur', flushNote);
+  $('#doneBox').addEventListener('change', e => {
+    flushNote(); c.done = e.target.checked; c.updated = Date.now(); persist();
+    toast(c.done ? 'Marked as finished' : 'Marked as to do');
+  });
+  $('#detailBack').addEventListener('click', closeDetailNav);
+  if ($('#flipBtn')) {
+    let back = false;
+    $('#flipBtn').addEventListener('click', () => { back = !back; $('#cardImg').src = back ? c.imgBack : c.img; });
+  }
+  if ($('#removeFromDeck')) armConfirm($('#removeFromDeck'), 'Tap again to remove', () => {
+    fromDeck.cards = fromDeck.cards.filter(e => e.id !== id); persist(); toast(`Removed from ${fromDeck.name}`); closeDetailNav();
+  });
+  if ($('#deleteCard')) armConfirm($('#deleteCard'), 'Tap again to delete this card and its note', () => {
+    delete data.cards[id]; persist(); toast('Card deleted'); closeDetailNav();
+  });
+}
+function flushNote() {
+  const ta = $('#note');
+  if (!ta || !saveTimerNote) return;
+  clearTimeout(saveTimerNote); saveTimerNote = 0;
+  const c = data.cards[ui.route.id];
+  if (c && c.note !== ta.value) { c.note = ta.value; c.updated = Date.now(); persist(); }
+  const s = $('#savedMsg'); if (s) s.textContent = 'Saved';
+}
+function closeDetail() {
+  if ($('#detail').hidden) return;
+  flushNote();
+  $('#detail').hidden = true; $('#detail').innerHTML = '';
+  document.body.style.overflow = '';
+}
+function closeDetailNav() {
+  flushNote();
+  if (history.state && history.state.fromApp) history.back(); else go(ui.base);
+}
+// mark entries we pushed so Back returns to the list
+window.addEventListener('hashchange', () => { if (parseRoute().view === 'card' && !history.state) history.replaceState({ fromApp: true }, ''); });
+window.addEventListener('pagehide', flushNote);
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushNote(); });
+
+function armConfirm(btn, confirmText, action) {
+  const label = btn.textContent; let armed = false, t;
+  btn.addEventListener('click', () => {
+    if (armed) { clearTimeout(t); action(); return; }
+    armed = true; btn.textContent = confirmText;
+    t = setTimeout(() => { armed = false; btn.textContent = label; }, 3500);
+  });
+}
+
+/* ============================== sheets ============================== */
+function openSheet(html) {
+  const host = $('#sheetHost');
+  host.innerHTML = `<div class="scrim" id="scrim"></div><div class="sheet" role="dialog" aria-modal="true">${'<div class="grab"></div>' + html}</div>`;
+  $('#scrim').addEventListener('click', closeSheet);
+  host.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeSheet));
+  return host.querySelector('.sheet');
+}
+function closeSheet() { $('#sheetHost').innerHTML = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+$('#fab').addEventListener('click', () => {
+  const v = parseRoute().view;
+  if (v === 'decks') openImportSheet();
+  else openAddCardSheet(v === 'deck' ? parseRoute().id : null);
+});
+
+function openImportSheet() {
+  openSheet(`<h2>Import a deck</h2>
+    <div><label class="lbl" for="deckName">Deck name</label><input type="text" id="deckName" placeholder="Leave blank to use the commander's name"></div>
+    <div><label class="lbl" for="deckText">Decklist</label>
+      <textarea id="deckText" placeholder="Commander&#10;1 The Thirteenth Doctor&#10;&#10;Deck&#10;1 Sol Ring&#10;1 Arcane Signet"></textarea></div>
+    <p class="hint">One card per line, like “1 Sol Ring”. Put commanders under a “Commander” line. Exports from Moxfield, Archidekt, MTG Arena and MTGO work.</p>
+    <div class="msg" id="importMsg" role="status"></div>
+    <button class="btn primary block" id="importGo">Save as new deck</button>
+    <button class="btn block" data-close>Cancel</button>`);
+  $('#importGo').addEventListener('click', async () => {
+    const btn = $('#importGo'), msg = $('#importMsg');
+    const list = parseDeck($('#deckText').value);
+    if (!list.length) { msg.className = 'msg err'; msg.textContent = 'Paste a decklist first: one card per line, like “1 Sol Ring”.'; return; }
+    btn.disabled = true; msg.className = 'msg';
+    try {
+      const { deck, missing } = await importDeck($('#deckName').value.trim(), list, t => { msg.textContent = t; });
+      closeSheet();
+      go('#/deck/' + encodeURIComponent(deck.id));
+      toast(missing.length ? `Saved. Couldn't find: ${missing.join(', ')}` : `Saved ${deck.name}`, missing.length ? 6000 : 2600);
+    } catch (err) { msg.className = 'msg err'; msg.textContent = netError(err); btn.disabled = false; }
+  });
+}
+async function importDeck(name, list, onProgress) {
+  const { result, missing } = await lookup(list, onProgress);
+  const deck = { id: uid(), name: '', created: Date.now(), cards: [] };
+  const byId = new Map(); const cmdNames = [];
+  for (const l of list) {
+    const sc = result.get(l.front.toLowerCase());
+    if (!sc) continue;
+    const rec = upsertCard(sc, false);
+    const ex = byId.get(rec.id);
+    if (ex) { ex.qty += l.qty; ex.cmd = ex.cmd || l.isCmd; }
+    else { const e = { id: rec.id, qty: l.qty, cmd: l.isCmd }; byId.set(rec.id, e); deck.cards.push(e); }
+    if (l.isCmd) cmdNames.push(rec.name.split(/[,\/]/)[0].trim());
+  }
+  deck.name = name || (cmdNames.length ? [...new Set(cmdNames)].join(' & ') : 'Deck ' + new Date().toLocaleDateString());
+  data.decks.unshift(deck); persist();
+  return { deck, missing };
+}
+
+function openAddCardSheet(deckId) {
+  const deck = deckId ? data.decks.find(d => d.id === deckId) : null;
+  openSheet(`<h2>Add a card</h2>
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input type="text" id="addName" placeholder="Type a card name" autocomplete="off" autocapitalize="words" enterkeyhint="search" aria-label="Card name" style="width:100%;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;padding:0 12px 0 38px"></div>
+    ${deck ? `<label class="checkrow"><input type="checkbox" id="addToDeck" checked> Also add to ${esc(deck.name)}</label>` : ''}
+    <div class="msg" id="addMsg" role="status"></div>
+    <div class="sugs" id="sugs"></div>
+    <button class="btn block" data-close>Cancel</button>`);
+  const input = $('#addName'), msg = $('#addMsg'), sugs = $('#sugs');
+  setTimeout(() => input.focus(), 50);
+  let timer, seq = 0;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 2) { sugs.innerHTML = ''; msg.textContent = ''; return; }
+    timer = setTimeout(async () => {
+      const my = ++seq;
+      try {
+        const j = await getJson('https://api.scryfall.com/cards/autocomplete?q=' + encodeURIComponent(q));
+        if (my !== seq) return;
+        const names = (j && j.data) || [];
+        msg.className = 'msg'; msg.textContent = names.length ? '' : 'No cards with that name.';
+        sugs.innerHTML = names.slice(0, 12).map(n => `<button class="sug" data-n="${esc(n)}">${esc(n)}</button>`).join('');
+        sugs.querySelectorAll('.sug').forEach(b => b.addEventListener('click', () => addCard(b.dataset.n, deck)));
+      } catch (err) { msg.className = 'msg err'; msg.textContent = netError(err); }
+    }, 250);
+  });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && input.value.trim()) addCard(input.value.trim(), deck); });
+}
+async function addCard(name, deck) {
+  const msg = $('#addMsg');
+  msg.className = 'msg'; msg.textContent = `Adding ${name}…`;
+  try {
+    let sc = await getJson('https://api.scryfall.com/cards/named?exact=' + encodeURIComponent(name));
+    if (!sc) sc = await getJson('https://api.scryfall.com/cards/named?fuzzy=' + encodeURIComponent(name));
+    if (!sc || sc.object !== 'card') { msg.className = 'msg err'; msg.textContent = `Couldn't find “${name}”. Check the spelling.`; return; }
+    const existed = !!data.cards[fromScryfall(sc).id];
+    const rec = upsertCard(sc, true);
+    if (deck && $('#addToDeck') && $('#addToDeck').checked) {
+      const e = deck.cards.find(x => x.id === rec.id);
+      if (e) e.qty += 1; else deck.cards.push({ id: rec.id, qty: 1, cmd: false });
+    }
+    persist(); closeSheet();
+    toast(existed ? `${rec.name} is already in your library` : `Added ${rec.name}`);
+    renderBase(ui.base);
+    go('#/card/' + encodeURIComponent(rec.id));
+  } catch (err) { msg.className = 'msg err'; msg.textContent = netError(err); }
+}
+
+/* ============================== menu: deck options, backup ============================== */
+$('#menuBtn').addEventListener('click', () => {
+  const r = parseRoute();
+  const deck = r.view === 'deck' ? data.decks.find(d => d.id === r.id) : null;
+  const sheet = openSheet(`<h2>${deck ? esc(deck.name) : 'Options'}</h2>
+    ${deck ? `<div><label class="lbl" for="renameDeck">Deck name</label><input type="text" id="renameDeck" value="${esc(deck.name)}"></div>
+      <button class="btn danger block" id="deleteDeck">Delete this deck</button>
+      <p class="hint">Deleting a deck keeps its cards and your notes in the library.</p><hr style="border:0;border-top:1px solid var(--line);width:100%">` : ''}
+    <p class="hint">${Object.keys(data.cards).length} cards and ${data.decks.length} deck${data.decks.length === 1 ? '' : 's'} saved on this phone. Save a backup now and then, so you don't lose your notes if you clear your browser or change phones.</p>
+    <button class="btn block" id="exportBtn">Save a backup file</button>
+    <button class="btn block" id="importBtn">Restore from a backup file</button>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+    <div class="msg" id="menuMsg" role="status"></div>
+    <button class="btn danger block" id="restoreBtn" hidden>Replace everything with this backup</button>
+    <p class="hint">Card names, text and pictures come from Scryfall. Not affiliated with Wizards of the Coast.</p>
+    <button class="btn block" data-close>Close</button>`);
+  if (deck) {
+    const rn = $('#renameDeck');
+    rn.addEventListener('change', () => { const v = rn.value.trim(); if (v) { deck.name = v; persist(); $('#title').textContent = v; toast('Deck renamed'); } });
+    armConfirm($('#deleteDeck'), 'Tap again to delete the deck', () => {
+      data.decks = data.decks.filter(d => d !== deck); persist(); closeSheet(); toast('Deck deleted. Cards and notes are still in the library.'); go('#/decks');
+    });
+  }
+  $('#exportBtn').addEventListener('click', exportBackup);
+  $('#importBtn').addEventListener('click', () => $('#importFile').click());
+  $('#importFile').addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const d = JSON.parse(await f.text());
+      if (!d || !d.cards || !Array.isArray(d.decks)) throw new Error('bad');
+      const msg = $('#menuMsg');
+      msg.className = 'msg';
+      msg.textContent = `This backup has ${Object.keys(d.cards).length} cards and ${d.decks.length} deck${d.decks.length === 1 ? '' : 's'}. Restoring replaces what's on this phone now.`;
+      const old = $('#restoreBtn'), btn = old.cloneNode(true);
+      old.replaceWith(btn); btn.hidden = false;
+      armConfirm(btn, 'Tap again to replace everything', () => {
+        data = d; data.settings = Object.assign({ view: 'list' }, data.settings); persist();
+        closeSheet(); syncViewButtons(); toast('Backup restored'); go('#/library');
+      });
+    } catch { const m = $('#menuMsg'); m.className = 'msg err'; m.textContent = "That file isn't a Card Notes backup."; }
+  });
+});
+async function exportBackup() {
+  const json = JSON.stringify(data);
+  const name = `card-notes-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const file = new File([json], name, { type: 'application/json' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Card Notes backup' }); return; }
+  } catch (err) { if (err && err.name === 'AbortError') return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast('Backup saved');
+}
+
+/* ============================== sample deck ============================== */
+const SAMPLE = `Commander
+1 The Thirteenth Doctor
+1 Yasmin Khan
+
+Deck
+1 Danny Pink
+1 Osgood, Operation Double
+1 Quantum Misalignment
+1 Nardole, Resourceful Cyborg
+1 Bill Potts
+1 Into the Time Vortex
+1 Flaming Tyrannosaurus
+1 Ryan Sinclair
+1 Impending Flux
+1 Sisterhood of Karn
+1 Graham O'Brien
+1 River Song
+1 Strax, Sontaran Nurse
+1 The Twelfth Doctor
+1 TARDIS
+1 Sonic Screwdriver
+1 Surge of Brilliance
+1 Iraxxa, Empress of Mars
+1 Thijarian Witness
+1 Sol Ring
+1 Arcane Signet
+1 Ponder
+1 Think Twice
+1 Cultivate
+1 Command Tower
+4 Island
+3 Mountain
+4 Forest`;
+async function importSample() {
+  toast('Importing the sample deck…', 8000);
+  try {
+    const { deck } = await importDeck('Paradox Power (sample)', parseDeck(SAMPLE));
+    toast('Sample deck imported'); go('#/deck/' + encodeURIComponent(deck.id));
+  } catch (err) { toast(netError(err), 6000); }
+}
+
+/* ============================== start ============================== */
+syncViewButtons();
+route();
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
