@@ -232,7 +232,11 @@
   .menu { display: flex; flex-direction: column; gap: 8px; }
 
   /* card detail */
-  #detail { position: fixed; inset: 0; z-index: 35; background: var(--bg); overflow: auto; overscroll-behavior: contain; }
+  #detail { position: fixed; inset: 0; z-index: 35; background: var(--bg); overflow: auto; overflow-x: hidden; overscroll-behavior: contain; }
+  .cardnav { align-items: center; }
+  .cardnav button { color: var(--ink); width: 34px; }
+  .cardnav button:disabled { opacity: .3; cursor: default; }
+  .cardnav .pos { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; padding-inline: 2px; white-space: nowrap; }
   #detail .body { padding-block: 16px 40px; display: flex; flex-direction: column; gap: 14px; }
   .cardimg { position: relative; width: min(100%, 340px); margin: 0 auto; }
   .cardimg img { width: 100%; border-radius: 4.6% / 3.3%; display: block; box-shadow: 0 6px 18px rgba(0,0,0,.35); background: #111; aspect-ratio: 488 / 680; }
@@ -434,7 +438,8 @@ function parseDeck(txt) {
 }
 
 /* ============================== app state + routing ============================== */
-const ui = { q: { library: '', deck: '' }, filter: { library: 'all', deck: 'all' }, base: '#/library', route: {} };
+// order: card ids as last shown in the list, for stepping between cards on the card page
+const ui = { q: { library: '', deck: '' }, filter: { library: 'all', deck: 'all' }, base: '#/library', route: {}, order: [] };
 
 function parseRoute() {
   const parts = (location.hash || '#/library').slice(2).split('/');
@@ -459,6 +464,7 @@ function route() {
 function renderBase(hash) {
   const parts = hash.slice(2).split('/');
   const view = parts[0] || 'library', id = decodeURIComponent(parts[1] || '');
+  ui.order = [];
   $('#tabLibrary').toggleAttribute('aria-current', view === 'library');
   $('#tabDecks').toggleAttribute('aria-current', view === 'decks' || view === 'deck');
   if (view === 'library') $('#tabLibrary').setAttribute('aria-current', 'page');
@@ -548,6 +554,7 @@ function renderLibrary() {
   main.innerHTML = toolsHtml('library', 'Search names or your notes', counts);
   const draw = () => {
     const list = all.filter(c => matches(c, ui.q.library) && filterOk(c, ui.filter.library)).sort((a, b) => a.name.localeCompare(b.name));
+    ui.order = list.map(c => c.id);
     const host = $('#results');
     if (!list.length) { host.innerHTML = `<div class="empty"><p>No cards match${ui.q.library ? ` “${esc(ui.q.library)}”` : ' this filter'}.</p></div>`; return; }
     host.innerHTML = `<div class="count">${list.length} card${list.length === 1 ? '' : 's'}</div>
@@ -618,12 +625,14 @@ function renderDeck(id) {
   const draw = () => {
     const list = entries.filter(x => matches(x.c, ui.q.deck) && filterOk(x.c, ui.filter.deck));
     const host = $('#results');
+    ui.order = [];
     if (!list.length) { host.innerHTML = `<div class="empty"><p>No cards match${ui.q.deck ? ` “${esc(ui.q.deck)}”` : ' this filter'}.</p></div>`; return; }
     const grid = data.settings.view === 'grid';
     let html = `<div class="${grid ? 'grid' : 'list'}">`;
     for (const s of SECTIONS) {
       const group = list.filter(x => sectionOf(x.c, x.e) === s).sort((a, b) => a.c.name.localeCompare(b.c.name));
       if (!group.length) continue;
+      ui.order.push(...group.map(x => x.c.id));
       const n = group.reduce((t, x) => t + x.e.qty, 0);
       html += `<h3 class="sect ${grid ? 'gsect' : ''}">${s}<span>${n}</span></h3>` + group.map(x => cardItem(x.c, grid ? x.e.qty : x.e.qty)).join('');
     }
@@ -642,10 +651,17 @@ function openDetail(id) {
   const det = $('#detail');
   const inDecks = data.decks.filter(d => d.cards.some(e => e.id === id));
   const fromDeck = ui.base.startsWith('#/deck/') ? data.decks.find(d => d.id === decodeURIComponent(ui.base.split('/')[2])) : null;
+  const ids = orderIds(), pos = ids.indexOf(id);
+  const chev = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
   det.innerHTML = `
     <header class="appbar"><div class="wrap">
       <button class="iconbtn" id="detailBack" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <h1>${esc(c.name)}</h1></div></header>
+      <h1>${esc(c.name)}</h1>
+      ${pos >= 0 && ids.length > 1 ? `<div class="seg cardnav" role="group" aria-label="Other cards">
+        <button id="prevCard" aria-label="Previous card" ${pos > 0 ? '' : 'disabled'}>${chev('M14 7l-5 5 5 5')}</button>
+        <span class="pos">${pos + 1} / ${ids.length}</span>
+        <button id="nextCard" aria-label="Next card" ${pos < ids.length - 1 ? '' : 'disabled'}>${chev('M10 7l5 5-5 5')}</button></div>` : ''}
+      </div></header>
     <div class="wrap body">
       ${c.img ? `<div class="cardimg"><img id="cardImg" src="${esc(c.img)}" alt="${esc(c.name)}">
         ${c.imgBack ? `<button class="btn flip" id="flipBtn">Flip</button>` : ''}</div>` : ''}
@@ -682,6 +698,10 @@ function openDetail(id) {
     toast(c.done ? 'Marked as finished' : 'Marked as to do');
   });
   $('#detailBack').addEventListener('click', closeDetailNav);
+  if ($('#prevCard')) {
+    $('#prevCard').addEventListener('click', () => stepCard(-1, true));
+    $('#nextCard').addEventListener('click', () => stepCard(1, true));
+  }
   if ($('#flipBtn')) {
     let back = false;
     $('#flipBtn').addEventListener('click', () => { back = !back; $('#cardImg').src = back ? c.imgBack : c.img; });
@@ -711,6 +731,70 @@ function closeDetailNav() {
   flushNote();
   if (history.state && history.state.fromApp) history.back(); else go(ui.base);
 }
+
+/* stepping to the previous / next card of the list, by swipe, the ‹ › buttons or arrow keys */
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+function orderIds() { return ui.order.filter(x => data.cards[x]); }
+function neighborId(dir) {
+  const ids = orderIds(), i = ids.indexOf(ui.route.id);
+  return i < 0 ? null : ids[i + dir] || null;
+}
+function stepCard(dir, animate) {
+  const next = neighborId(dir);
+  if (!next) return;
+  flushNote();
+  // replace rather than push, so Back still returns straight to the list
+  history.replaceState(history.state, '', '#/card/' + encodeURIComponent(next));
+  route();
+  const body = $('#detail .body');
+  if (animate && body && !reduceMotion.matches)
+    body.animate([{ transform: `translateX(${dir * 48}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 180, easing: 'ease-out' });
+}
+(() => {
+  const det = $('#detail');
+  let sx = 0, sy = 0, dx = 0, lock = 'y', body = null; // lock: null = undecided, 'x' = swiping, 'y' = scrolling / ignored
+  det.addEventListener('touchstart', e => {
+    lock = 'y';
+    if (e.touches.length !== 1 || e.target.closest('textarea, input, button, a, summary')) return;
+    const t = e.touches[0];
+    if (t.clientX < 24 || t.clientX > innerWidth - 24) return; // leave the screen edges to the phone's own back gesture
+    sx = t.clientX; sy = t.clientY; dx = 0; lock = null; body = det.querySelector('.body');
+  }, { passive: true });
+  det.addEventListener('touchmove', e => {
+    if (lock === 'y') return;
+    const t = e.touches[0], mx = t.clientX - sx, my = t.clientY - sy;
+    if (!lock) {
+      if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
+      lock = Math.abs(mx) > Math.abs(my) * 1.3 ? 'x' : 'y';
+      if (lock === 'y') return;
+    }
+    e.preventDefault();
+    dx = mx;
+    if (!reduceMotion.matches && body) {
+      body.style.transition = 'none';
+      body.style.transform = `translateX(${neighborId(dx < 0 ? 1 : -1) ? dx : dx / 4}px)`;
+    }
+  }, { passive: false });
+  const end = () => {
+    if (lock !== 'x') { lock = 'y'; return; }
+    lock = 'y';
+    const dir = dx < 0 ? 1 : -1;
+    const turn = Math.abs(dx) > Math.min(90, innerWidth * 0.22) && neighborId(dir);
+    if (reduceMotion.matches || !body) { if (turn) stepCard(dir, false); return; }
+    body.style.transition = 'transform .15s ease-out';
+    if (!turn) { body.style.transform = ''; return; }
+    body.style.transform = `translateX(${-dir * innerWidth}px)`;
+    setTimeout(() => stepCard(dir, true), 150);
+  };
+  det.addEventListener('touchend', end);
+  det.addEventListener('touchcancel', end);
+  document.addEventListener('keydown', e => {
+    if (det.hidden || $('#sheetHost').childElementCount || e.target.closest('textarea, input')) return;
+    if (e.key === 'ArrowLeft') stepCard(-1, true);
+    if (e.key === 'ArrowRight') stepCard(1, true);
+  });
+})();
+
 // mark entries we pushed so Back returns to the list
 window.addEventListener('hashchange', () => { if (parseRoute().view === 'card' && !history.state) history.replaceState({ fromApp: true }, ''); });
 window.addEventListener('pagehide', flushNote);
