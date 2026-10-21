@@ -1,6 +1,6 @@
 // Card Notes service worker: keeps the app and card pictures available offline.
 // Your notes live in the page's local storage, not here.
-const SHELL = 'cardnotes-shell-v1';
+const SHELL = 'cardnotes-shell-v2';
 const IMAGES = 'cardnotes-images-v1';
 const SHELL_FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 const IMAGE_HOSTS = ['cards.scryfall.io', 'svgs.scryfall.io'];
