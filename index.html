@@ -259,6 +259,22 @@
   details.rules { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; }
   details.rules summary { cursor: pointer; font-weight: 600; }
   .oracle { white-space: pre-wrap; font-size: 15px; margin-top: 8px; }
+  .kwbtn {
+    display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; text-align: left; cursor: pointer;
+    padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+  }
+  .kwbtn:active { background: var(--surface-2); }
+  .kwbtn .kwlbl { font-weight: 600; flex: none; }
+  .kwbtn .kwnames { flex: 1; min-width: 0; color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kwbtn svg { width: 18px; height: 18px; flex: none; color: var(--muted); }
+  .kwlist { display: flex; flex-direction: column; }
+  .kw { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .kw:first-child { padding-top: 0; }
+  .kw h3 { margin: 0 0 4px; font: 700 16px/1.3 var(--f-display); }
+  .kw p { margin: 0; font-size: 15px; }
+  .kw .mana { width: 15px; height: 15px; filter: none; }
+  .kw a { display: inline-block; margin-top: 4px; font-size: 13.5px; color: var(--accent); }
+  .kwhead { position: sticky; top: -8px; z-index: 1; background: var(--surface); padding-block: 8px; display: flex; flex-direction: column; gap: 10px; }
   .indecks { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; color: var(--muted); }
   .indecks a { color: var(--ink); background: var(--surface-2); border-radius: 999px; padding: 4px 10px; text-decoration: none; font-size: 13.5px; }
 
@@ -283,6 +299,7 @@
       <button id="viewList" aria-pressed="true" aria-label="Name and mana"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       <button id="viewGrid" aria-pressed="false" aria-label="Full card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="7" height="9.5" rx="1"/><rect x="13" y="3" width="7" height="9.5" rx="1"/><rect x="4" y="14.5" width="7" height="6.5" rx="1"/><rect x="13" y="14.5" width="7" height="6.5" rx="1"/></svg></button>
     </div>
+    <button class="iconbtn" id="kwAllBtn" aria-label="Keywords"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 8h7M9 12h5"/></svg></button>
     <button class="iconbtn" id="menuBtn" aria-label="More options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
   </div>
 </header>
@@ -358,6 +375,7 @@ function fromScryfall(c) {
     imgBack: (faces[1] && faces[1].image_uris && faces[1].image_uris.normal) || '',
     art: (c.image_uris || f0.image_uris || {}).art_crop || '',
     faces: faces.map(f => f.name),
+    keywords: c.keywords || [],
   };
 }
 function upsertCard(sc, manual) {
@@ -653,6 +671,7 @@ function openDetail(id) {
   const fromDeck = ui.base.startsWith('#/deck/') ? data.decks.find(d => d.id === decodeURIComponent(ui.base.split('/')[2])) : null;
   const ids = orderIds(), pos = ids.indexOf(id);
   const chev = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+  const kws = cardKeywords(c);
   det.innerHTML = `
     <header class="appbar"><div class="wrap">
       <button class="iconbtn" id="detailBack" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
@@ -667,6 +686,8 @@ function openDetail(id) {
         ${c.imgBack ? `<button class="btn flip" id="flipBtn">Flip</button>` : ''}</div>` : ''}
       <div class="namebar"><h2>${esc(c.name)}</h2><span class="mana-lg">${manaHtml(c.mana)}</span></div>
       <div class="typeline">${esc(c.type)}</div>
+      ${kws.length ? `<button class="kwbtn" id="kwBtn"><span class="kwlbl">Keywords</span>
+        <span class="kwnames">${kws.map(k => esc(k.name)).join(' · ')}</span>${chev('M10 7l5 5-5 5')}</button>` : ''}
       <div class="notebox">
         <label for="note">Your note</label>
         <textarea id="note" placeholder="Write what this card does, in your own words and language. It saves as you type."></textarea>
@@ -702,6 +723,7 @@ function openDetail(id) {
     $('#prevCard').addEventListener('click', () => stepCard(-1, true));
     $('#nextCard').addEventListener('click', () => stepCard(1, true));
   }
+  if ($('#kwBtn')) $('#kwBtn').addEventListener('click', () => openKeywordSheet(kws));
   if ($('#flipBtn')) {
     let back = false;
     $('#flipBtn').addEventListener('click', () => { back = !back; $('#cardImg').src = back ? c.imgBack : c.img; });
@@ -808,6 +830,241 @@ function armConfirm(btn, confirmText, action) {
     t = setTimeout(() => { armed = false; btn.textContent = label; }, 3500);
   });
 }
+
+/* ============================== keywords ============================== */
+// [name, what it does, pattern]. Without a pattern the name is matched as whole words.
+const KEYWORDS = [
+  // abilities a creature or permanent has
+  ['Flying', "Can't be blocked except by creatures with flying or reach."],
+  ['Reach', 'Can block creatures with flying.'],
+  ['First strike', 'Deals combat damage before creatures without first strike.'],
+  ['Double strike', 'Deals combat damage twice: once with first-strike creatures, then again with normal creatures.'],
+  ['Deathtouch', 'Any amount of damage it deals to a creature is enough to destroy that creature.'],
+  ['Lifelink', "Damage dealt by this also makes its controller gain that much life."],
+  ['Trample', "When it's blocked, damage beyond what's needed to destroy its blockers goes on to the player, planeswalker or battle it's attacking."],
+  ['Vigilance', "Attacking doesn't cause it to tap."],
+  ['Haste', 'Can attack and use {T} abilities the turn it comes under your control.'],
+  ['Menace', "Can't be blocked except by two or more creatures."],
+  ['Defender', "Can't attack."],
+  ['Hexproof', "Can't be the target of spells or abilities your opponents control. “Hexproof from X” only stops X spells and abilities."],
+  ['Shroud', "Can't be the target of any spells or abilities, not even yours."],
+  ['Indestructible', "Damage and “destroy” effects don't destroy it. It can still be exiled, sacrificed, or die from 0 toughness."],
+  ['Flash', "You may cast it any time you could cast an instant, even on an opponent's turn."],
+  ['Ward', "Whenever it becomes the target of a spell or ability an opponent controls, counter that spell or ability unless that player pays the ward cost."],
+  ['Protection', "Protection from X: it can't be blocked by X creatures, targeted by X spells or abilities, or enchanted or equipped by X, and all damage from X sources is prevented."],
+  ['Landwalk', "Can't be blocked while the defending player controls a land of that kind (swampwalk: a Swamp, and so on).", /\b[a-z]+walk\b/i],
+  ['Fear', "Can't be blocked except by artifact creatures and/or black creatures."],
+  ['Intimidate', "Can't be blocked except by artifact creatures and/or creatures that share a color with it."],
+  ['Shadow', 'Can block or be blocked only by creatures with shadow.'],
+  ['Skulk', "Can't be blocked by creatures with greater power."],
+  ['Changeling', 'This is every creature type at all times.'],
+  ['Devoid', 'This card has no color, even though its mana cost has colored symbols.'],
+  ['Phasing', "Before you untap each turn, it phases in or out. While phased out, it's treated as though it doesn't exist.", /\bphasing\b|\bphase[sd]? (in|out)\b/i],
+  ['Decayed', "Can't block. When it attacks, sacrifice it at end of combat."],
+  ['Equip', 'Pay the equip cost: attach this Equipment to target creature you control. Only as a sorcery (your main phase, when nothing else is happening).'],
+  ['Enchant', 'Says what this Aura can be attached to. If that thing leaves or becomes illegal, the Aura goes to the graveyard.'],
+  ['Reconfigure', "Pay the cost: attach it to target creature you control, or unattach it. While attached it isn't a creature. Only as a sorcery."],
+  ['Living weapon', 'When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this to it.'],
+  ['For Mirrodin!', 'When this Equipment enters, create a 2/2 red Rebel creature token, then attach this to it.', /\bfor mirrodin!/i],
+  ['Crew', 'Crew N: tap any number of your untapped creatures with total power N or more, and this Vehicle becomes an artifact creature until end of turn.'],
+  ['Saddle', 'Saddle N: tap any number of your other untapped creatures with total power N or more, and this Mount becomes saddled until end of turn. Only as a sorcery.', /\bsaddled?\b/i],
+  ['Station', 'Tap another creature you control: put charge counters equal to its power on this. Only as a sorcery.'],
+  ['Umbra armor', 'If the enchanted creature would be destroyed, instead remove all damage from it and destroy this Aura.', /\b(umbra|totem) armor\b/i],
+  ['Partner', "You can have two commanders if both have partner. “Partner with [name]” pairs it only with that card, and when it enters, a player may search their library for that card."],
+  ["Doctor's companion", 'You can have two commanders if one is this and the other is a legendary Time Lord Doctor creature.'],
+  ['Companion', "If your starting deck meets this card's condition, you may choose it as your companion from outside the game. Once per game, pay {3} as a sorcery to put it into your hand."],
+  // triggers while it's in play
+  ['Prowess', 'Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.'],
+  ['Exalted', 'Whenever a creature you control attacks alone, it gets +1/+1 until end of turn for each instance of exalted among your permanents.'],
+  ['Battle cry', 'Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.'],
+  ['Annihilator', 'Annihilator N: whenever this creature attacks, the defending player sacrifices N permanents.'],
+  ['Infect', 'Deals damage to creatures as -1/-1 counters and to players as poison counters. A player with 10 or more poison counters loses.'],
+  ['Wither', 'Deals damage to creatures as -1/-1 counters.'],
+  ['Toxic', 'Toxic N: a player dealt combat damage by this creature also gets N poison counters. A player with 10 or more poison counters loses.'],
+  ['Poisonous', 'Poisonous N: whenever this deals combat damage to a player, that player gets N poison counters. A player with 10 or more loses.'],
+  ['Persist', "When it dies, if it had no -1/-1 counters on it, return it to the battlefield with a -1/-1 counter on it."],
+  ['Undying', "When it dies, if it had no +1/+1 counters on it, return it to the battlefield with a +1/+1 counter on it."],
+  ['Afterlife', 'Afterlife N: when this creature dies, create N 1/1 white and black Spirit creature tokens with flying.'],
+  ['Riot', 'This creature enters with your choice of a +1/+1 counter or haste.'],
+  ['Mentor', 'Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.'],
+  ['Training', 'Whenever this creature attacks alongside a creature with greater power, put a +1/+1 counter on this creature.'],
+  ['Evolve', 'Whenever a creature with greater power or toughness than this one enters under your control, put a +1/+1 counter on this creature.'],
+  ['Exploit', 'When this creature enters, you may sacrifice a creature (to get the bonus written on the card).', /\bexploit(s|ed)?\b/i],
+  ['Fabricate', 'Fabricate N: when this enters, put N +1/+1 counters on it or create N 1/1 colorless Servo artifact creature tokens.'],
+  ['Myriad', "Whenever this creature attacks, for each other opponent you may create a token copy of it attacking that player. Exile the tokens at end of combat."],
+  ['Melee', 'Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.'],
+  ['Dethrone', 'Whenever this creature attacks the player with the most life (or tied for most), put a +1/+1 counter on it.'],
+  ['Renown', "Renown N: when this creature deals combat damage to a player, if it isn't renowned, put N +1/+1 counters on it and it becomes renowned.", /\brenown(ed)?\b/i],
+  ['Bloodthirst', 'Bloodthirst N: if an opponent was dealt damage this turn, this creature enters with N +1/+1 counters.'],
+  ['Modular', 'Modular N: enters with N +1/+1 counters. When it dies, you may move its +1/+1 counters onto target artifact creature.'],
+  ['Sunburst', "Enters with a +1/+1 counter (a charge counter if it isn't a creature) for each color of mana spent to cast it."],
+  ['Devour', 'Devour N: as this enters, you may sacrifice any number of creatures. It enters with N +1/+1 counters for each one.'],
+  ['Flanking', 'Whenever a creature without flanking blocks this creature, the blocker gets -1/-1 until end of turn.'],
+  ['Hideaway', 'Hideaway N: when this enters, look at the top N cards of your library, exile one face down and put the rest on the bottom. Another ability on the card lets you play it later.'],
+  ['Enlist', 'As this creature attacks, you may tap one of your non-attacking creatures that could attack. If you do, add its power to this creature until end of turn.'],
+  ['Backup', "Backup N: when this creature enters, put N +1/+1 counters on target creature. If it's another creature, it also gets this creature's abilities listed below until end of turn."],
+  ['Mobilize', 'Mobilize N: whenever this creature attacks, create N tapped and attacking 1/1 red Warrior creature tokens. Sacrifice them at the beginning of the next end step.'],
+  ['Endure', 'Endure N: put N +1/+1 counters on this permanent, or create an N/N white Spirit creature token.', /\bendures?\b/i],
+  ['Cumulative upkeep', 'At the beginning of your upkeep, put an age counter on it, then pay its upkeep cost once for each age counter, or sacrifice it.'],
+  ['Echo', 'At the beginning of your upkeep, if it came under your control since your last upkeep, sacrifice it unless you pay its echo cost.'],
+  ['Vanishing', 'Vanishing N: enters with N time counters. At the beginning of your upkeep, remove one. When the last is removed, sacrifice it.'],
+  ['Fading', "Fading N: enters with N fade counters. At the beginning of your upkeep, remove one; if you can't, sacrifice it."],
+  ['Exhaust', 'An exhaust ability can be activated only once (per game, for this object).'],
+  ['Start your engines!', "If you have no speed, it starts at 1. Once each turn, when an opponent loses life during your turn, your speed goes up by 1 (up to 4). “Max speed” abilities work only while your speed is 4.", /start your engines!|\bmax speed\b/i],
+  // ways to cast it
+  ['Kicker', 'You may pay an extra cost as you cast this spell to get the extra effect. Multikicker lets you pay it any number of times.', /\b(multi)?kick(er|ed)\b/i],
+  ['Flashback', 'You may cast this card from your graveyard for its flashback cost. Then exile it.'],
+  ['Jump-start', 'You may cast this card from your graveyard by also discarding a card. Then exile it.'],
+  ['Retrace', 'You may cast this card from your graveyard by also discarding a land card.'],
+  ['Escape', 'You may cast this card from your graveyard for its escape cost, which includes exiling other cards from your graveyard.', /\bescape[sd]?\b/i],
+  ['Harmonize', 'You may cast this card from your graveyard for its harmonize cost. You may tap one of your creatures to reduce that cost by its power. Then exile this spell.'],
+  ['Disturb', 'You may cast this card transformed (its back face) from your graveyard for its disturb cost.'],
+  ['Aftermath', 'Cast the second half of this split card only from your graveyard, then exile it.'],
+  ['Madness', 'If you discard this card, you may cast it for its madness cost instead of putting it into your graveyard.'],
+  ['Miracle', "When you draw this card, if it's the first card you drew this turn, you may cast it for its miracle cost."],
+  ['Suspend', 'Suspend N — cost: pay the suspend cost and exile it from your hand with N time counters. At the beginning of your upkeep, remove one. When the last is removed, cast it free. A creature cast this way has haste.', /\bsuspend(ed)?\b/i],
+  ['Time travel', 'For each suspended card you own and each permanent you control with a time counter on it, you may add or remove a time counter.', /\btime travel/i],
+  ['Foretell', 'During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.', /\bforet(ell|old)\b/i],
+  ['Plot', 'You may pay the plot cost and exile this card from your hand. Cast it free on a later turn, as a sorcery.', /\bplot(ted)?\b/i],
+  ['Warp', 'You may cast this from your hand for its warp cost. If you do, exile it at the beginning of the next end step; you may cast it from exile on a later turn.', /\bwarp(ed)?\b/i],
+  ['Evoke', "You may cast this for its evoke cost. If you do, it's sacrificed when it enters (its enter ability still happens).", /\bevoked?\b/i],
+  ['Emerge', "You may cast this by sacrificing a creature and paying the emerge cost, reduced by that creature's mana value."],
+  ['Dash', "You may cast this for its dash cost. If you do, it gains haste and returns to your hand at the beginning of the next end step.", /\bdash(ed)?\b/i],
+  ['Blitz', "You may cast this for its blitz cost. If you do, it gains haste and “When this creature dies, draw a card.” Sacrifice it at the beginning of the next end step.", /\bblitz(ed)?\b/i],
+  ['Prowl', 'You may cast this for its prowl cost if one of your creatures that shares a creature type with it dealt combat damage to a player this turn.'],
+  ['Ninjutsu', 'Pay the ninjutsu cost and return one of your unblocked attackers to your hand: put this card onto the battlefield tapped and attacking. (Commander ninjutsu also works from the command zone.)'],
+  ['Bestow', "If you cast it for its bestow cost, it's an Aura that enchants a creature. If that creature leaves, it becomes a creature again.", /\bbestow(ed)?\b/i],
+  ['Overload', 'If you cast this for its overload cost, every “target” in its text becomes “each”.', /\boverload(ed)?\b/i],
+  ['Spectacle', 'You may cast this for its spectacle cost if an opponent lost life this turn.'],
+  ['Surge', 'You may cast this for its surge cost if you or a teammate cast another spell this turn.'],
+  ['Prototype', 'You may cast it as a smaller version, using the prototype mana cost, power and toughness. It keeps its other abilities.'],
+  ['Impending', "Impending N — cost: you may cast it for its impending cost. It enters with N time counters and isn't a creature while it has any. Remove one at the beginning of your end step.", /\bimpending\b/i],
+  ['Mutate', "If you cast it for its mutate cost, put it over or under one of your non-Human creatures. They become one creature with the top card's look and stats plus every ability of both.", /\bmutat(e|es|ed|ing)\b/i],
+  ['Morph', 'You may cast this face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost. (Megamorph also adds a +1/+1 counter.)', /\b(mega)?morph(ed)?\b/i],
+  ['Disguise', 'You may cast this face down as a 2/2 creature with ward {2} for {3}. Turn it face up any time for its disguise cost.', /\bdisguised?\b/i],
+  ['Cleave', 'You may cast this for its cleave cost. If you do, ignore the words in [square brackets].'],
+  // extra costs while casting
+  ['Convoke', "Your creatures can help pay for this. Each creature you tap while casting it pays {1} or one mana of that creature's color."],
+  ['Improvise', 'Your artifacts can help pay for this. Each artifact you tap while casting it pays {1}.'],
+  ['Delve', 'Each card you exile from your graveyard while casting this pays {1}.'],
+  ['Affinity', 'Affinity for X: this spell costs {1} less for each X you control.'],
+  ['Buyback', 'You may pay an extra buyback cost as you cast this. If you do, it returns to your hand instead of your graveyard.'],
+  ['Entwine', 'If you pay the entwine cost, you get all of its modes instead of choosing one.', /\bentwined?\b/i],
+  ['Replicate', 'When you cast this, copy it once for each time you paid its replicate cost.'],
+  ['Spree', 'Choose one or more modes. Add the + cost of each chosen mode to the spell\'s cost.'],
+  ['Offspring', 'You may pay an extra offspring cost as you cast this. If you do, when it enters, create a 1/1 token copy of it.'],
+  ['Gift', 'As you cast this, you may promise an opponent the gift. If you do, they get it and the spell does its extra effect.', /\bgift\b/i],
+  ['Bargain', 'As you cast this, you may sacrifice an artifact, enchantment or token to get the extra effect.', /\bbargain(ed)?\b/i],
+  ['Casualty', 'Casualty N: as you cast this, you may sacrifice a creature with power N or more. If you do, copy this spell.'],
+  ['Squad', 'You may pay the squad cost any number of times as you cast this. When it enters, create that many token copies of it.'],
+  ['Cascade', 'When you cast this, exile cards from the top of your library until you hit a nonland card with lower mana value. You may cast it free. Put the rest on the bottom in random order.'],
+  ['Storm', 'When you cast this, copy it for each other spell cast before it this turn.'],
+  ['Rebound', 'If you cast this from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast it from exile free.'],
+  ['Split second', "While this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities."],
+  ['Cipher', 'Then you may encode this on one of your creatures. Whenever that creature deals combat damage to a player, you may cast a free copy of this card.'],
+  ['Read ahead', "As this Saga enters, choose which chapter to start on. Earlier chapters don't trigger."],
+  ['Compleated', 'Phyrexian mana ({H}) can be paid with 2 life. For each one paid with life, this planeswalker enters with two fewer loyalty counters.'],
+  ['Daybound / Nightbound', 'When a daybound card shows up it becomes day. If a player casts no spells during their own turn, it becomes night next turn; two or more spells in one turn make it day again. Daybound cards flip to their nightbound side at night.', /\b(day|night)bound\b/i],
+  // from the graveyard
+  ['Unearth', 'Pay the unearth cost: return this from your graveyard to the battlefield with haste. Exile it at the next end step, or if it would leave. Only as a sorcery.'],
+  ['Embalm', "Pay the cost and exile this from your graveyard: create a token copy of it that's a white Zombie with no mana cost. Only as a sorcery."],
+  ['Eternalize', "Pay the cost and exile this from your graveyard: create a token copy of it that's a 4/4 black Zombie with no mana cost. Only as a sorcery."],
+  ['Encore', 'Pay the cost and exile this from your graveyard: for each opponent, create a token copy that attacks that opponent this turn. They have haste. Sacrifice them at the next end step.'],
+  ['Scavenge', 'Pay the cost and exile this from your graveyard: put +1/+1 counters equal to its power on target creature. Only as a sorcery.'],
+  ['Dredge', 'Dredge N: if you would draw a card, you may instead mill N cards and return this card from your graveyard to your hand.'],
+  // actions the text tells you to do
+  ['Scry', 'Scry N: look at the top N cards of your library. Put any of them on the bottom and the rest back on top in any order.'],
+  ['Surveil', 'Surveil N: look at the top N cards of your library. Put any of them into your graveyard and the rest back on top in any order.', /\bsurveils?\b/i],
+  ['Mill', 'Mill N: put the top N cards of your library into your graveyard.', /\bmill(s|ed)?\b/i],
+  ['Fight', 'Each of the two creatures deals damage equal to its power to the other.', /\bfights?\b/i],
+  ['Investigate', 'Create a Clue token.', /\binvestigates?\b/i],
+  ['Explore', "Reveal the top card of your library. If it's a land, put it into your hand. If not, put a +1/+1 counter on this creature, and you may put that card into your graveyard.", /\bexplores?\b/i],
+  ['Proliferate', 'Choose any number of permanents and/or players, then give each one more counter of each kind it already has.'],
+  ['Populate', 'Create a token that is a copy of a creature token you control.', /\bpopulates?\b/i],
+  ['Amass', "Amass N: if you don't control an Army, create a 0/0 Army creature token. Put N +1/+1 counters on your Army.", /\bamass(es)?\b/i],
+  ['Adapt', 'Adapt N: if this creature has no +1/+1 counters on it, put N +1/+1 counters on it.', /\badapts?\b/i],
+  ['Bolster', 'Bolster N: put N +1/+1 counters on the creature you control with the least toughness.', /\bbolsters?\b/i],
+  ['Support', 'Support N: put a +1/+1 counter on each of up to N other target creatures.'],
+  ['Monstrosity', "Monstrosity N: if this creature isn't monstrous, put N +1/+1 counters on it and it becomes monstrous.", /\bmonstro(sity|us)\b/i],
+  ['Goad', 'Until your next turn, the goaded creature attacks each combat if able, and attacks a player other than you if able.', /\bgoad(s|ed)?\b/i],
+  ['Detain', "Until your next turn, that permanent can't attack or block and its activated abilities can't be used.", /\bdetains?\b/i],
+  ['Connive', 'Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.', /\bconniv(e|es|ed)\b/i],
+  ['Exert', "An exerted creature won't untap during your next untap step.", /\bexert(s|ed)?\b/i],
+  ['Incubate', 'Incubate N: create an Incubator artifact token with N +1/+1 counters and “{2}: Transform this artifact.” It transforms into a 0/0 Phyrexian artifact creature (keeping the counters).', /\bincubat(e|es|or)\b/i],
+  ['Discover', 'Discover N: exile cards from the top of your library until you hit a nonland card with mana value N or less. Cast it free or put it into your hand. Put the rest on the bottom in random order.'],
+  ['Learn', 'You may reveal a Lesson card from outside the game and put it into your hand, or discard a card to draw a card.', /\blearns?\b/i],
+  ['Suspect', "A suspected creature has menace and can't block.", /\bsuspect(s|ed)?\b/i],
+  ['Collect evidence', 'Collect evidence N: exile cards with total mana value N or more from your graveyard.', /\bcollects? evidence\b/i],
+  ['Forage', 'Exile three cards from your graveyard or sacrifice a Food.', /\bforag(e|es|ed)\b/i],
+  ['Manifest dread', 'Look at the top two cards of your library. Manifest one of them (put it onto the battlefield face down as a 2/2 creature) and put the other into your graveyard.'],
+  ['Manifest', "Put the top card of your library onto the battlefield face down as a 2/2 creature. If it's a creature card, you can turn it face up for its mana cost.", /\bmanifest(s|ed)?\b(?! dread)/i],
+  ['Cloak', "Put the card onto the battlefield face down as a 2/2 creature with ward {2}. If it's a creature card, you can turn it face up for its mana cost.", /\bcloak(s|ed)?\b/i],
+  ['Transform', 'Turn this double-faced card over to its other face.', /\btransform(s|ed)?\b/i],
+  ['Regenerate', 'The next time it would be destroyed this turn, instead tap it, remove all damage from it and remove it from combat.', /\bregenerat(e|es|ed)\b/i],
+  ['Clash', 'Each clashing player reveals the top card of their library, then puts it on the top or bottom. You win if your card had the higher mana value.', /\bclash(es)?\b/i],
+  ['Venture into the dungeon', "Move your marker to the next room of a dungeon (or start one) and do that room's effect.", /\bventures? into\b/i],
+  // game ideas and tokens
+  ['Monarch', 'The monarch draws an extra card at the beginning of their end step. Deal combat damage to the monarch to become the monarch.'],
+  ['Initiative', 'Taking the initiative, and each upkeep you have it, ventures into the Undercity dungeon. Deal combat damage to the player who has it to take it.'],
+  ["City's blessing", "Ascend: if you control ten or more permanents, you get the city's blessing for the rest of the game.", /\bascend\b|\bcity's blessing\b/i],
+  ['Energy', 'Energy counters ({E}) are a resource you keep. Spend them to pay for abilities that show {E}.', /\{E\}|\benergy\b/i],
+  ['Shield counter', 'If a permanent with a shield counter would be dealt damage or destroyed, instead remove the shield counter.', /\bshield counters?\b/i],
+  ['Stun counter', 'If a permanent with a stun counter would become untapped, instead remove a stun counter from it.', /\bstun counters?\b/i],
+  ['Treasure', 'An artifact token with “{T}, Sacrifice this artifact: Add one mana of any color.”', /\btreasures?\b/i],
+  ['Food', 'An artifact token with “{2}, {T}, Sacrifice this artifact: You gain 3 life.”', /\bfoods?\b/i],
+  ['Clue', 'An artifact token with “{2}, Sacrifice this artifact: Draw a card.”', /\bclues?\b/i],
+  ['Blood', 'An artifact token with “{1}, {T}, Discard a card, Sacrifice this artifact: Draw a card.”', /\bblood tokens?\b/i],
+  ['Map', 'An artifact token with “{1}, {T}, Sacrifice this artifact: Target creature you control explores. Activate only as a sorcery.”', /\bmap tokens?\b/i],
+  ['Powerstone', "An artifact token with “{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.”", /\bpowerstones?\b/i],
+].map(([name, def, re]) => ({ name, def, re: re || new RegExp(`\\b${name}\\b`, 'i') }));
+const ABILITY_WORD = "An ability word. It has no rules meaning of its own; it just names the ability after the dash, so read the card text that follows it.";
+
+// Keywords on a card, in the order they first appear in its text.
+function cardKeywords(c) {
+  let t = c.text || '';
+  for (const n of [c.name, ...(c.faces || [])]) if (n) t = t.split(n).join(' '); // so "Ward of Bones" doesn't count as ward
+  t = t.replace(/\([^)]*\)/g, ' '); // reminder text
+  const found = [];
+  const has = n => found.some(f => f.name.toLowerCase() === n.toLowerCase());
+  for (const k of KEYWORDS) { const i = t.search(k.re); if (i >= 0) found.push({ ...k, i }); }
+  for (const m of t.matchAll(/^([A-Z][a-z'’-]*(?: [a-z'’-]+)*) — /gm)) {
+    const n = m[1];
+    if (/^choose\b/i.test(n) || has(n) || KEYWORDS.some(k => k.re.test(n))) continue;
+    found.push({ name: n, def: ABILITY_WORD, i: m.index });
+  }
+  // Scryfall's own keyword list, for anything the patterns above missed
+  for (const kw of c.keywords || []) {
+    const g = KEYWORDS.find(k => k.re.test(kw));
+    if (g ? has(g.name) : has(kw)) continue;
+    found.push(g ? { ...g, i: Infinity } : { name: kw, def: null, i: Infinity });
+  }
+  return found.sort((a, b) => a.i - b.i);
+}
+const kwItems = kws => kws.map(k => `<div class="kw"><h3>${esc(k.name)}</h3>
+  <p>${k.def ? rulesHtml(k.def) : 'No explanation built into the app yet.'}</p>
+  <a href="https://mtg.wiki/index.php?search=${encodeURIComponent(k.name.split(' / ')[0])}" target="_blank" rel="noopener">More on MTG Wiki ↗</a></div>`).join('');
+function openKeywordSheet(kws) {
+  openSheet(`<h2>Keywords</h2>
+    <div class="kwlist">${kwItems(kws)}</div>
+    <button class="btn block" data-close>Close</button>`);
+}
+// every keyword the app knows, from the top bar of the list screens
+function openGlossarySheet() {
+  const all = [...KEYWORDS, { name: 'Ability words', def: ABILITY_WORD.replace('An ability word.', 'Words like Landfall or Paradox before a dash.') }]
+    .sort((a, b) => a.name.localeCompare(b.name));
+  openSheet(`<div class="kwhead"><h2>Keywords</h2>
+      <input type="text" id="kwSearch" placeholder="Search keywords" autocomplete="off" enterkeyhint="search" aria-label="Search keywords"></div>
+    <div class="kwlist" id="kwAll"></div>
+    <button class="btn block" data-close>Close</button>`);
+  const draw = () => {
+    const q = norm($('#kwSearch').value.trim());
+    const hits = q ? all.filter(k => norm(k.name).includes(q) || norm(k.def).includes(q)) : all;
+    $('#kwAll').innerHTML = hits.length ? kwItems(hits) : `<p class="hint">No keyword matches “${esc($('#kwSearch').value.trim())}”.</p>`;
+  };
+  $('#kwSearch').addEventListener('input', draw);
+  draw();
+}
+$('#kwAllBtn').addEventListener('click', openGlossarySheet);
 
 /* ============================== sheets ============================== */
 function openSheet(html) {
